@@ -98,7 +98,7 @@ func (s *State) ValidatorLoop() {
 	// We should only generate 1 EOM for each height/minute/vmindex
 
 	go s.DoProcessing()
-	go s.Instance.Run()
+	go s.A_Instance.Run()
 	// Look for pending messages, and get one if there is one.
 	for { // this is the message sort
 		var msg interfaces.IMsg
@@ -126,9 +126,9 @@ func (s *State) ValidatorLoop() {
 			eom.SetLocal(true) // local EOMs are really just timeout indicators that we need to generate an EOM
 			msg = eom
 			s.LogMessage("validator", fmt.Sprintf("generated c:%d  %d-:-%d %d", c, s.LLeaderHeight, s.CurrentMinute, s.LeaderVMIndex), eom)
-			s.Instance.InMsg <- msg
+			s.A_Instance.InMsg <- msg
 		case msg = <-s.inMsgQueue:
-			s.Instance.InMsg <- msg
+			s.A_Instance.InMsg <- msg
 		}
 	}
 }

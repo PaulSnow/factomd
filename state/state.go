@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/PaulSnow/factom2d/factom2"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,14 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PaulSnow/factom2d/events"
-
-	"github.com/PaulSnow/factom2d/common/constants/runstate"
-
 	"github.com/FactomProject/logrustash"
+	"github.com/PaulSnow/factom2d/Utilities/CorrectChainHeads/correctChainHeads"
 	"github.com/PaulSnow/factom2d/activations"
 	"github.com/PaulSnow/factom2d/common/adminBlock"
 	"github.com/PaulSnow/factom2d/common/constants"
+	"github.com/PaulSnow/factom2d/common/constants/runstate"
 	"github.com/PaulSnow/factom2d/common/globals"
 	. "github.com/PaulSnow/factom2d/common/identity"
 	"github.com/PaulSnow/factom2d/common/interfaces"
@@ -38,12 +35,12 @@ import (
 	"github.com/PaulSnow/factom2d/database/databaseOverlay"
 	"github.com/PaulSnow/factom2d/database/leveldb"
 	"github.com/PaulSnow/factom2d/database/mapdb"
+	"github.com/PaulSnow/factom2d/events"
+	"github.com/PaulSnow/factom2d/factom2"
 	"github.com/PaulSnow/factom2d/p2p"
 	"github.com/PaulSnow/factom2d/util"
 	"github.com/PaulSnow/factom2d/util/atomic"
 	"github.com/PaulSnow/factom2d/wsapi"
-
-	"github.com/PaulSnow/factom2d/Utilities/CorrectChainHeads/correctChainHeads"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,7 +51,7 @@ var packageLogger = log.WithFields(log.Fields{"package": "state"})
 var _ = fmt.Print
 
 type State struct {
-	Instance *factom2.Instance
+	A_Instance *factom2.Instance
 
 	Logger            *log.Entry
 	RunState          runstate.RunState
@@ -476,7 +473,8 @@ func (s *State) GetRunState() runstate.RunState {
 func (s *State) Clone(cloneNumber int) interfaces.IState {
 	newState := new(State)
 
-	newState.Instance = new(factom2.Instance)
+	newState.A_Instance = new(factom2.Instance)
+	newState.A_Instance.Identity = cloneNumber
 
 	number := fmt.Sprintf("%02d", cloneNumber)
 
@@ -1023,8 +1021,6 @@ func (s *State) GetSalt(ts interfaces.Timestamp) uint32 {
 
 func (s *State) Init() {
 
-	s.Instance = new(factom2.Instance)
-
 	if s.Salt == nil {
 		b := make([]byte, 32)
 		_, err := rand.Read(b)
@@ -1063,13 +1059,13 @@ func (s *State) Init() {
 	s.InvalidMessages = make(map[[32]byte]interfaces.IMsg, 0)
 
 	s.ShutdownChan = make(chan int, 1)                //Channel to gracefully shut down.
-	s.tickerQueue = make(chan int, 1)               //ticks from a clock
+	s.tickerQueue = make(chan int, 1)                 //ticks from a clock
 	s.timerMsgQueue = make(chan interfaces.IMsg, 100) //incoming eom notifications, used by leaders
 	s.ControlPanelChannel = make(chan DisplayState, 20)
-	s.Instance.NetOutInvalid = make(chan interfaces.IMsg, 100) //incoming message queue from the network messages
-	s.Instance.NetOutMsg = NewNetOutMsgQueue(constants.INMSGQUEUE_MED)
-	s.Instance.InMsg = NewInMsgQueue(constants.INMSGQUEUE_HIGH)  //incoming message queue for Factom application messages
-	s.Instance.APIQueue = NewAPIQueue(constants.INMSGQUEUE_HIGH) //incoming message queue from the API
+	s.A_Instance.NetOutInvalid = make(chan interfaces.IMsg, 100) //incoming message queue from the network messages
+	s.A_Instance.NetOutMsg = NewNetOutMsgQueue(constants.INMSGQUEUE_MED)
+	s.A_Instance.InMsg = NewInMsgQueue(constants.INMSGQUEUE_HIGH)  //incoming message queue for Factom application messages
+	s.A_Instance.APIQueue = NewAPIQueue(constants.INMSGQUEUE_HIGH) //incoming message queue from the API
 
 	// Set up struct to stop replay attacks
 	s.Replay = new(Replay)

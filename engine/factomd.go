@@ -6,16 +6,15 @@ package engine
 
 import (
 	"fmt"
-	"github.com/PaulSnow/factom2d/factom2"
 	"runtime"
-
-	"github.com/PaulSnow/factom2d/events"
 
 	"github.com/PaulSnow/factom2d/common/constants"
 	"github.com/PaulSnow/factom2d/common/constants/runstate"
 	. "github.com/PaulSnow/factom2d/common/globals"
 	"github.com/PaulSnow/factom2d/common/interfaces"
 	"github.com/PaulSnow/factom2d/common/primitives"
+	"github.com/PaulSnow/factom2d/events"
+	"github.com/PaulSnow/factom2d/factom2"
 	"github.com/PaulSnow/factom2d/state"
 
 	"bufio"
@@ -51,7 +50,7 @@ func Factomd(params *FactomParams, listenToStdin bool) interfaces.IState {
 
 	state0 := new(state.State)
 	instance := new(factom2.Instance)
-	state0.Instance = instance
+	state0.A_Instance = instance
 	state0.RunState = runstate.New
 
 	// Setup the name to catch any early logging
