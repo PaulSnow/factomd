@@ -20,13 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PaulSnow/factom2d/events"
-
-	"github.com/PaulSnow/factom2d/common/constants/runstate"
-
+	"github.com/FactomProject/logrustash"
+	"github.com/PaulSnow/factom2d/Utilities/CorrectChainHeads/correctChainHeads"
 	"github.com/PaulSnow/factom2d/activations"
 	"github.com/PaulSnow/factom2d/common/adminBlock"
 	"github.com/PaulSnow/factom2d/common/constants"
+	"github.com/PaulSnow/factom2d/common/constants/runstate"
 	"github.com/PaulSnow/factom2d/common/globals"
 	. "github.com/PaulSnow/factom2d/common/identity"
 	"github.com/PaulSnow/factom2d/common/interfaces"
@@ -36,13 +35,12 @@ import (
 	"github.com/PaulSnow/factom2d/database/databaseOverlay"
 	"github.com/PaulSnow/factom2d/database/leveldb"
 	"github.com/PaulSnow/factom2d/database/mapdb"
+	"github.com/PaulSnow/factom2d/events"
+	"github.com/PaulSnow/factom2d/factom2"
 	"github.com/PaulSnow/factom2d/p2p"
 	"github.com/PaulSnow/factom2d/util"
 	"github.com/PaulSnow/factom2d/util/atomic"
 	"github.com/PaulSnow/factom2d/wsapi"
-	"github.com/FactomProject/logrustash"
-
-	"github.com/PaulSnow/factom2d/Utilities/CorrectChainHeads/correctChainHeads"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -53,6 +51,8 @@ var packageLogger = log.WithFields(log.Fields{"package": "state"})
 var _ = fmt.Print
 
 type State struct {
+	A_Instance *factom2.Instance
+
 	Logger            *log.Entry
 	RunState          runstate.RunState
 	NetworkController *p2p.Controller
@@ -472,6 +472,10 @@ func (s *State) GetRunState() runstate.RunState {
 
 func (s *State) Clone(cloneNumber int) interfaces.IState {
 	newState := new(State)
+
+	newState.A_Instance = new(factom2.Instance)
+	newState.A_Instance.Identity = cloneNumber
+
 	number := fmt.Sprintf("%02d", cloneNumber)
 
 	simConfigPath := util.GetHomeDir() + "/.factom/m2/simConfig/"
@@ -1016,6 +1020,7 @@ func (s *State) GetSalt(ts interfaces.Timestamp) uint32 {
 }
 
 func (s *State) Init() {
+
 	if s.Salt == nil {
 		b := make([]byte, 32)
 		_, err := rand.Read(b)
@@ -1054,32 +1059,14 @@ func (s *State) Init() {
 	s.InvalidMessages = make(map[[32]byte]interfaces.IMsg, 0)
 
 	s.ShutdownChan = make(chan int, 1)                //Channel to gracefully shut down.
-	s.tickerQueue = make(chan int, 100)               //ticks from a clock
+	s.tickerQueue = make(chan int, 1)                 //ticks from a clock
 	s.timerMsgQueue = make(chan interfaces.IMsg, 100) //incoming eom notifications, used by leaders
 	s.ControlPanelChannel = make(chan DisplayState, 20)
-	s.networkInvalidMsgQueue = make(chan interfaces.IMsg, 100)              //incoming message queue from the network messages
-	s.networkOutMsgQueue = NewNetOutMsgQueue(constants.INMSGQUEUE_MED)      //Messages to be broadcast to the network
-	s.inMsgQueue = NewInMsgQueue(constants.INMSGQUEUE_HIGH)                 //incoming message queue for Factom application messages
-	s.inMsgQueue2 = NewInMsgQueue(constants.INMSGQUEUE_HIGH)                //incoming message queue for Factom application messages
-	s.electionsQueue = NewElectionQueue(constants.INMSGQUEUE_HIGH)          //incoming message queue for Factom application messages
-	s.apiQueue = NewAPIQueue(constants.INMSGQUEUE_HIGH)                     //incoming message queue from the API
-	s.ackQueue = make(chan interfaces.IMsg, 50)                             //queue of Leadership messages
-	s.msgQueue = make(chan interfaces.IMsg, 50)                             //queue of Follower messages
-	s.prioritizedMsgQueue = make(chan interfaces.IMsg, 50)                  //a prioritized queue of Follower messages (from mmr.go)
-	s.MissingEntries = make(chan *MissingEntry, constants.INMSGQUEUE_HIGH)  //Entries I discover are missing from the database
-	s.dataQueue = NewInMsgQueue(constants.INMSGQUEUE_HIGH)                  //incoming requests for missing data
-	s.UpdateEntryHash = make(chan *EntryUpdate, constants.INMSGQUEUE_HIGH)  //Handles entry hashes and updating Commit maps.
-	s.WriteEntry = make(chan interfaces.IEBEntry, constants.INMSGQUEUE_LOW) //Entries to be written to the database
-	s.RecentMessage.NewMsgs = make(chan interfaces.IMsg, 100)
+	s.A_Instance.NetOutInvalid = make(chan interfaces.IMsg, 100) //incoming message queue from the network messages
+	s.A_Instance.NetOutMsg = NewNetOutMsgQueue(constants.INMSGQUEUE_MED)
+	s.A_Instance.InMsg = NewInMsgQueue(constants.INMSGQUEUE_HIGH)  //incoming message queue for Factom application messages
+	s.A_Instance.APIQueue = NewAPIQueue(constants.INMSGQUEUE_HIGH) //incoming message queue from the API
 
-	if s.Journaling {
-		f, err := os.Create(s.JournalFile)
-		if err != nil {
-			fmt.Println("Could not create the journal file:", s.JournalFile)
-			s.JournalFile = ""
-		}
-		f.Close()
-	}
 	// Set up struct to stop replay attacks
 	s.Replay = new(Replay)
 	s.Replay.s = s
@@ -2195,7 +2182,7 @@ func (s *State) SetIdentityChainID(chainID interfaces.IHash) {
 }
 
 func (s *State) GetMinuteDuration() time.Duration {
-	return time.Duration(s.DirectoryBlockInSeconds) * time.Second / 10
+	return time.Duration(s.DirectoryBlockInSeconds) * time.Second
 }
 
 func (s *State) GetDirectoryBlockInSeconds() int {

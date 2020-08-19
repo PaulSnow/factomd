@@ -246,7 +246,7 @@ func Peers(fnode *FactomNode) {
 					}
 
 					if mm, ok := msg.(*messages.MissingMsgResponse); ok {
-						if eom, ok := mm.MsgResponse.(*messages.EOM); ok {
+						if eom, ok := mm.MsgResponse.(*messages.EOB); ok {
 							t2 := fmt.Sprintf("%7d-:-%d %s", fnode.State.LLeaderHeight, fnode.State.CurrentMinute, eom.String())
 							messageResult := regex.MatchString(t2)
 							if messageResult {
@@ -324,15 +324,15 @@ func sendToExecute(msg interfaces.IMsg, fnode *FactomNode, source string) {
 		if fnode.State.ChainCommits.Get(msg.GetHash().Fixed()) != nil {
 			Q1(fnode, source, msg) // fast track chain reveals
 		} else {
-			Q2(fnode, source, msg) // all other reveals are slow track
+			Q1(fnode, source, msg) // all other reveals are slow track
 			fnode.State.Reveals.Add(msg)
 		}
 
 	case constants.COMMIT_ENTRY_MSG:
-		Q2(fnode, source, msg) // slow track
+		Q1(fnode, source, msg) // slow track
 
 	case constants.MISSING_DATA:
-		DataQ(fnode, source, msg) // separated missing data queue
+		Q1(fnode, source, msg) // separated missing data queue
 
 	default:
 		//todo: Probably should send EOM/DBSig and their ACKs on a faster yet track
@@ -398,7 +398,7 @@ func NetworkOutputs(fnode *FactomNode) {
 			}
 
 			if mm, ok := msg.(*messages.MissingMsgResponse); ok {
-				if eom, ok := mm.MsgResponse.(*messages.EOM); ok {
+				if eom, ok := mm.MsgResponse.(*messages.EOB); ok {
 					t2 := fmt.Sprintf("%7d-:-%d %s", fnode.State.LLeaderHeight, fnode.State.CurrentMinute, eom.String())
 					messageResult := regex.MatchString(t2)
 					if messageResult {
